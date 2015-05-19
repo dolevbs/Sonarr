@@ -46,7 +46,14 @@ namespace NzbDrone.Core.Indexers.TorrentRss
 
         private IEnumerable<IndexerRequest> GetRssRequests(String searchParameters)
         {
-            yield return new IndexerRequest(Settings.BaseUrl.Trim().TrimEnd('/'), HttpAccept.Rss);
+            var request = new IndexerRequest(Settings.BaseUrl.Trim().TrimEnd('/'), HttpAccept.Rss);
+
+            if (Settings.Cookie.IsNotNullOrWhiteSpace())
+            {
+                request.HttpRequest.AddCookie(Settings.Cookie);
+            }
+
+            yield return request;
         }
     }
 }
