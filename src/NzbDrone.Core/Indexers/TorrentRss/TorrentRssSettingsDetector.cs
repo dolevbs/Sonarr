@@ -295,12 +295,9 @@ namespace NzbDrone.Core.Indexers.TorrentRss
                 return false;
             }
 
-            if (url.StartsWith("magnet:"))
-            {
-                return true;
-            }
-
-            if (Uri.IsWellFormedUriString(url, UriKind.Absolute))
+            if (url.StartsWith("magnet:") ||
+                url.StartsWith("http:") ||
+                url.StartsWith("https:"))
             {
                 return true;
             }

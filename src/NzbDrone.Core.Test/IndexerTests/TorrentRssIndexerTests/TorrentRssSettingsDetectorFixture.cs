@@ -7,6 +7,7 @@ using NUnit.Framework;
 using NzbDrone.Common.Http;
 using NzbDrone.Core.Indexers.TorrentRss;
 using NzbDrone.Core.Test.Framework;
+using NzbDrone.Test.Common;
 
 namespace NzbDrone.Core.Test.IndexerTests.TorrentRssIndexerTests
 {
@@ -101,6 +102,25 @@ namespace NzbDrone.Core.Test.IndexerTests.TorrentRssIndexerTests
             });
         }
 
+        [Test]
+        public void should_detect_rss_settings_for_TransmitTheNet()
+        {
+            _indexerSettings.AllowZeroSize = true;
+
+            GivenRecentFeedResponse("TorrentRss/TransmitTheNet.xml");
+
+            var settings = Subject.Detect(_indexerSettings);
+
+            settings.ShouldBeEquivalentTo(new TorrentRssIndexerParserSettings
+            {
+                UseEZTVFormat = false,
+                UseEnclosureLength = false,
+                ParseSizeInDescription = true,
+                ParseSeedersInDescription = false,
+                SizeElementName = null
+            });
+        }
+
         [TestCase("BitMeTv/BitMeTv.xml")]
         [TestCase("Fanzub/fanzub.xml")]
         [TestCase("KickassTorrents/KickassTorrents.xml")]
@@ -121,6 +141,7 @@ namespace NzbDrone.Core.Test.IndexerTests.TorrentRssIndexerTests
 
         [TestCase("TorrentRss/invalid/Eztv_InvalidDownloadUrl.xml")]
         [TestCase("TorrentRss/invalid/ImmortalSeed_InvalidDownloadUrl.xml")]
+        [TestCase("TorrentRss/invalid/TorrentDay_NoPubDate.xml")]
         public void should_reject_recent_feed(string rssXmlFile)
         {
             GivenRecentFeedResponse(rssXmlFile);
@@ -128,6 +149,9 @@ namespace NzbDrone.Core.Test.IndexerTests.TorrentRssIndexerTests
             var settings = Subject.Detect(_indexerSettings);
 
             settings.Should().BeNull();
+
+            //ExceptionVerification.ExpectedErrors(1);
+            ExceptionVerification.IgnoreErrors();
         }
 
         [TestCase("Torrentleech/Torrentleech.xml")]

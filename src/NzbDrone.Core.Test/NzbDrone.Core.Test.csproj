@@ -399,6 +399,12 @@
       <Link>App.config</Link>
     </None>
     <Content Include="Files\Indexers\Newznab\unauthorized.xml" />
+    <Content Include="Files\Indexers\TorrentRss\invalid\TorrentDay_NoPubDate.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Files\Indexers\TorrentRss\TransmitTheNet.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Files\LongOverview.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
