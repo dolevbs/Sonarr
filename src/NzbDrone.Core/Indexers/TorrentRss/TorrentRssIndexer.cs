@@ -12,7 +12,7 @@ namespace NzbDrone.Core.Indexers.TorrentRss
         {
             get
             {
-                return "Generic RSS Torrent";
+                return "Torrent RSS Feed";
             }
         }
 

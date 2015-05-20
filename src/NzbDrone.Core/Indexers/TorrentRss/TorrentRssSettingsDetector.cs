@@ -249,12 +249,12 @@ namespace NzbDrone.Core.Indexers.TorrentRss
         {
             if (!indexerSettings.AllowZeroSize && releases.Any(r => r.Size == 0))
             {
-                throw new UnsupportedFeedException("Feed doesn't contain the content size.");
+                throw new UnsupportedFeedException("Feed doesn't contain the release content size.");
             }
 
             if (releases.Any(r => r.Size != 0 && r.Size < ValidSizeThreshold))
             {
-                throw new UnsupportedFeedException("Size of one more releases lower than {0}, feed must contain content size.", ValidSizeThreshold.SizeSuffix());
+                throw new UnsupportedFeedException("Size of one more releases lower than {0}, feed must contain release content size.", ValidSizeThreshold.SizeSuffix());
             }
         }
 
