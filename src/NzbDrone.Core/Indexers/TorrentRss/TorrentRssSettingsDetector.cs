@@ -54,16 +54,8 @@ namespace NzbDrone.Core.Indexers.TorrentRss
                 return null;
             }
 
-            try
-            {
-                var indexerResponse = new IndexerResponse(request, httpResponse);
-                return GetParserSettings(indexerResponse, indexerSettings);
-            }
-            catch (Exception ex)
-            {
-                _logger.WarnException(string.Format("An error occurred while parsing the feed at '{0}': {1}", request.Url, ex.Message), ex);
-                return null;
-            }
+            var indexerResponse = new IndexerResponse(request, httpResponse);
+            return GetParserSettings(indexerResponse, indexerSettings);
         }
 
         private TorrentRssIndexerParserSettings GetParserSettings(IndexerResponse response, TorrentRssIndexerSettings indexerSettings)
@@ -95,18 +87,22 @@ namespace NzbDrone.Core.Indexers.TorrentRss
             var parser = new EzrssTorrentRssParser();
             var releases = ParseResponse(parser, response);
 
-            if (ValidateReleases(releases, indexerSettings) &&
-                ValidateReleaseSize(releases, indexerSettings))
+            try
             {
+                ValidateReleases(releases, indexerSettings);
+                ValidateReleaseSize(releases, indexerSettings);
+
                 _logger.Debug("Feed was parseable by Ezrss Parser");
                 return new TorrentRssIndexerParserSettings
                 {
                     UseEZTVFormat = true
                 };
             }
-
-            _logger.Trace("Feed wasn't parsable by Ezrss Parser");
-            return null;
+            catch (Exception ex)
+            {
+                _logger.TraceException("Feed wasn't parsable by Ezrss Parser", ex);
+                return null;
+            }
         }
 
         private TorrentRssIndexerParserSettings GetGenericTorrentRssParserSettings(IndexerResponse response, TorrentRssIndexerSettings indexerSettings)
@@ -124,10 +120,7 @@ namespace NzbDrone.Core.Indexers.TorrentRss
             };
 
             var releases = ParseResponse(parser, response);
-            if (!ValidateReleases(releases, indexerSettings))
-            {
-                return null;
-            }
+            ValidateReleases(releases, indexerSettings);
 
             if (!releases.Any(v => v.Seeders.HasValue))
             {
@@ -145,11 +138,8 @@ namespace NzbDrone.Core.Indexers.TorrentRss
             parser.ParseSizeInDescription = settings.ParseSizeInDescription = true;
 
             releases = ParseResponse(parser, response);
-            if (!ValidateReleases(releases, indexerSettings))
-            {
-                return null;
-            }
-                
+            ValidateReleases(releases, indexerSettings);
+
             if (!releases.Any(r => r.Size < ValidSizeThreshold))
             {
                 _logger.Trace("Feed has valid size in description.");
@@ -160,10 +150,7 @@ namespace NzbDrone.Core.Indexers.TorrentRss
             parser.SizeElementName = settings.SizeElementName = "Size";
 
             releases = ParseResponse(parser, response);
-            if (!ValidateReleases(releases, indexerSettings))
-            {
-                return null;
-            }
+            ValidateReleases(releases, indexerSettings);
 
             if (!releases.Any(r => r.Size < ValidSizeThreshold))
             {
@@ -176,11 +163,8 @@ namespace NzbDrone.Core.Indexers.TorrentRss
             parser.SizeElementName = settings.SizeElementName = null;
 
             releases = ParseResponse(parser, response);
-
-            if (!ValidateReleaseSize(releases, indexerSettings))
-            {
-                return null;
-            }
+            ValidateReleases(releases, indexerSettings);
+            ValidateReleaseSize(releases, indexerSettings);
 
             return settings;
         }
@@ -226,21 +210,15 @@ namespace NzbDrone.Core.Indexers.TorrentRss
             catch (Exception ex)
             {
                 _logger.DebugException("Unable to parse indexer feed: " + ex.Message, ex);
-                return null;
+                throw new UnsupportedFeedException("Unable to parse indexer: " + ex.Message);
             }
         }
 
-        private bool ValidateReleases(TorrentInfo[] releases, TorrentRssIndexerSettings indexerSettings)
+        private void ValidateReleases(TorrentInfo[] releases, TorrentRssIndexerSettings indexerSettings)
         {
-            if (releases == null)
+            if (releases == null || releases.Empty())
             {
-                return false;
-            }
-             
-            if (releases.Empty())
-            {
-                _logger.Trace("Empty feed, cannot check if feed is parsable.");
-                return false;
+                throw new UnsupportedFeedException("Empty feed, cannot check if feed is parsable.");
             }
 
             var torrentInfo = releases.First();
@@ -249,14 +227,12 @@ namespace NzbDrone.Core.Indexers.TorrentRss
 
             if (releases.Any(r => r.Title.IsNullOrWhiteSpace()))
             {
-                _logger.Trace("Feed contains releases without title.");
-                return false;
+                throw new UnsupportedFeedException("Feed contains releases without title.");
             }
 
             if (releases.Any(r => !IsValidDownloadUrl(r.DownloadUrl)))
             {
-                _logger.Trace("Failed to find a valid download url in the feed.");
-                return false;
+                throw new UnsupportedFeedException("Failed to find a valid download url in the feed.");
             }
 
             var total = releases.Where(v => v.Guid != null).Select(v => v.Guid).ToArray();
@@ -264,28 +240,27 @@ namespace NzbDrone.Core.Indexers.TorrentRss
 
             if (distinct.Length != total.Length)
             {
-                _logger.Trace("Feed contains releases with same guid, rejecting malformed rss feed.");
-                return false;
-            }
 
-            return true;
+                throw new UnsupportedFeedException("Feed contains releases with same guid, rejecting malformed rss feed.");
+            }
         }
 
-        private bool ValidateReleaseSize(TorrentInfo[] releases, TorrentRssIndexerSettings indexerSettings)
+        private void ValidateReleaseSize(TorrentInfo[] releases, TorrentRssIndexerSettings indexerSettings)
         {
             if (!indexerSettings.AllowZeroSize && releases.Any(r => r.Size == 0))
             {
-                _logger.Trace("Feed doesn't contain the content size.");
-                return false;
+                throw new UnsupportedFeedException("Feed doesn't contain the content size.");
             }
 
             if (releases.Any(r => r.Size != 0 && r.Size < ValidSizeThreshold))
             {
-                _logger.Trace("Size of one more releases lower than {0}, feed must contain content size.", ValidSizeThreshold.SizeSuffix());
-                return false;
+                throw new UnsupportedFeedException("Size of one more releases lower than {0}, feed must contain content size.", ValidSizeThreshold.SizeSuffix());
             }
+        }
 
-            return true;
+        private void ReportValidationError(string format, params object[] args)
+        {
+            throw new UnsupportedFeedException(format, args);
         }
 
         private static bool IsValidDownloadUrl(string url)

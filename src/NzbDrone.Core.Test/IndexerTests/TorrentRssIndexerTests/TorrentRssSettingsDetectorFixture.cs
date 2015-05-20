@@ -5,6 +5,7 @@ using FluentAssertions;
 using Moq;
 using NUnit.Framework;
 using NzbDrone.Common.Http;
+using NzbDrone.Core.Indexers.Exceptions;
 using NzbDrone.Core.Indexers.TorrentRss;
 using NzbDrone.Core.Test.Framework;
 using NzbDrone.Test.Common;
@@ -105,8 +106,6 @@ namespace NzbDrone.Core.Test.IndexerTests.TorrentRssIndexerTests
         [Test]
         public void should_detect_rss_settings_for_TransmitTheNet()
         {
-            _indexerSettings.AllowZeroSize = true;
-
             GivenRecentFeedResponse("TorrentRss/TransmitTheNet.xml");
 
             var settings = Subject.Detect(_indexerSettings);
@@ -119,6 +118,19 @@ namespace NzbDrone.Core.Test.IndexerTests.TorrentRssIndexerTests
                 ParseSeedersInDescription = false,
                 SizeElementName = null
             });
+        }
+
+        [Test]
+        [Ignore("Cannot reliably reject unparseable titles")]
+        public void should_reject_rss_settings_for_AwesomeHD()
+        {
+            _indexerSettings.AllowZeroSize = true;
+
+            GivenRecentFeedResponse("TorrentRss/AwesomeHD.xml");
+
+            var settings = Subject.Detect(_indexerSettings);
+
+            settings.Should().BeNull();
         }
 
         [TestCase("BitMeTv/BitMeTv.xml")]
@@ -141,17 +153,25 @@ namespace NzbDrone.Core.Test.IndexerTests.TorrentRssIndexerTests
 
         [TestCase("TorrentRss/invalid/Eztv_InvalidDownloadUrl.xml")]
         [TestCase("TorrentRss/invalid/ImmortalSeed_InvalidDownloadUrl.xml")]
-        [TestCase("TorrentRss/invalid/TorrentDay_NoPubDate.xml")]
-        public void should_reject_recent_feed(string rssXmlFile)
+        public void should_reject_recent_feed_with_invalid_downloadurl(string rssXmlFile)
         {
             GivenRecentFeedResponse(rssXmlFile);
 
-            var settings = Subject.Detect(_indexerSettings);
+            var ex = Assert.Throws<UnsupportedFeedException>(() => Subject.Detect(_indexerSettings));
 
-            settings.Should().BeNull();
+            ex.Message.Should().Contain("download url");
+        }
 
-            //ExceptionVerification.ExpectedErrors(1);
-            ExceptionVerification.IgnoreErrors();
+        [TestCase("TorrentRss/invalid/TorrentDay_NoPubDate.xml")]
+        public void should_reject_recent_feed_without_pubDate(string rssXmlFile)
+        {
+            GivenRecentFeedResponse(rssXmlFile);
+
+            var ex = Assert.Throws<UnsupportedFeedException>(() => Subject.Detect(_indexerSettings));
+
+            ex.Message.Should().Contain("Empty feed");
+
+            ExceptionVerification.ExpectedErrors(1);
         }
 
         [TestCase("Torrentleech/Torrentleech.xml")]
@@ -179,9 +199,9 @@ namespace NzbDrone.Core.Test.IndexerTests.TorrentRssIndexerTests
         {
             GivenRecentFeedResponse(rssXmlFile);
 
-            var settings = Subject.Detect(_indexerSettings);
+            var ex = Assert.Throws<UnsupportedFeedException>(() => Subject.Detect(_indexerSettings));
 
-            settings.Should().BeNull();
+            ex.Message.Should().Contain("content size");
         }
     }
 }
